@@ -1,0 +1,20 @@
+*** /Users/apple/Qt/5.15.2/Src/qtbase/src/plugins/platforms/cocoa/qcocoawindow.mm	2020-10-27 16:02:11.000000000 
+--- /Users/apple/Desktop/cocoa/qcocoawindow.mm	2023-04-26 11:08:39.000000000 
+***************
+*** 546,557 ****
+--- 546,560 ----
+          styleMask |= NSWindowStyleMaskTexturedBackground;
+  
+      // Don't wipe fullscreen state
+      if (m_view.window.styleMask & NSWindowStyleMaskFullScreen)
+          styleMask |= NSWindowStyleMaskFullScreen;
+  
++     if (m_view.window.styleMask & NSFullSizeContentViewWindowMask)
++         styleMask |= NSFullSizeContentViewWindowMask;
++ 
+      return styleMask;
+  }
+  
+  void QCocoaWindow::setWindowZoomButton(Qt::WindowFlags flags)
+  {
+      if (!isContentView())

@@ -1,0 +1,120 @@
+diff --git "a/D:\\Qt\\Qt5.6.3\\5.6.3\\Src\\qtbase\\src\\plugins\\platforms\\cocoa\\qcocoawindow.mm" "b/F:\\Downloads\\qcocoawindow.mm\\qcocoawindow.mm"
+index 0e5655f..ee6912b 100644
+--- "a/D:\\Qt\\Qt5.6.3\\5.6.3\\Src\\qtbase\\src\\plugins\\platforms\\cocoa\\qcocoawindow.mm"
++++ "b/F:\\Downloads\\qcocoawindow.mm\\qcocoawindow.mm"
+@@ -535,6 +535,7 @@ QCocoaWindow::~QCocoaWindow()
+     }
+ 
+     [m_contentView release];
++    [m_nsWindow close];
+     [m_nsWindow release];
+     [m_windowCursor release];
+ }
+@@ -886,55 +887,47 @@ NSInteger QCocoaWindow::windowLevel(Qt::WindowFlags flags)
+ 
+ NSUInteger QCocoaWindow::windowStyleMask(Qt::WindowFlags flags)
+ {
+-    Qt::WindowType type = static_cast<Qt::WindowType>(int(flags & Qt::WindowType_Mask));
+-    NSInteger styleMask = NSBorderlessWindowMask;
+-    if (flags & Qt::FramelessWindowHint)
+-        return styleMask;
+-    if ((type & Qt::Popup) == Qt::Popup) {
+-        if (!windowIsPopupType(type)) {
+-            styleMask = NSUtilityWindowMask | NSResizableWindowMask;
+-            if (!(flags & Qt::CustomizeWindowHint)) {
+-                styleMask |= NSClosableWindowMask | NSMiniaturizableWindowMask | NSTitledWindowMask;
+-            } else {
+-                if (flags & Qt::WindowTitleHint)
+-                    styleMask |= NSTitledWindowMask;
+-                if (flags & Qt::WindowCloseButtonHint)
+-                    styleMask |= NSClosableWindowMask;
+-                if (flags & Qt::WindowMinimizeButtonHint)
+-                    styleMask |= NSMiniaturizableWindowMask;
+-            }
+-        }
++    const Qt::WindowType type = static_cast<Qt::WindowType>(int(flags & Qt::WindowType_Mask));
++    const bool frameless = (flags & Qt::FramelessWindowHint) || windowIsPopupType(type);
++    
++    // Remove zoom button by disabling resize for CustomizeWindowHint windows, except for
++    // Qt::Tool windows (e.g. dock windows) which should always be resizable.
++    const bool resizable = !(flags & Qt::CustomizeWindowHint) || (type == Qt::Tool);
++    
++    // Select base window type. Note that the value of NSBorderlessWindowMask is 0.
++    NSUInteger styleMask = (frameless || !resizable) ? NSBorderlessWindowMask : NSResizableWindowMask;
++    
++    if (frameless) {
++        // No further customizations for frameless since there are no window decorations.
++    } else if (flags & Qt::CustomizeWindowHint) {
++        if (flags & Qt::WindowTitleHint)
++            styleMask |= NSTitledWindowMask;
++        if (flags & Qt::WindowCloseButtonHint)
++            styleMask |= NSClosableWindowMask;
++        if (flags & Qt::WindowMinimizeButtonHint)
++            styleMask |= NSMiniaturizableWindowMask;
++        if (flags & Qt::WindowMaximizeButtonHint)
++            styleMask |= NSResizableWindowMask;
+     } else {
+-        if (type == Qt::Window && !(flags & Qt::CustomizeWindowHint)) {
+-            styleMask = (NSResizableWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSTitledWindowMask);
+-        } else if (type == Qt::Dialog) {
+-            if (flags & Qt::CustomizeWindowHint) {
+-                if (flags & Qt::WindowMaximizeButtonHint)
+-                    styleMask = NSResizableWindowMask;
+-                if (flags & Qt::WindowTitleHint)
+-                    styleMask |= NSTitledWindowMask;
+-                if (flags & Qt::WindowCloseButtonHint)
+-                    styleMask |= NSClosableWindowMask;
+-                if (flags & Qt::WindowMinimizeButtonHint)
+-                    styleMask |= NSMiniaturizableWindowMask;
+-            } else {
+-                styleMask = NSResizableWindowMask | NSClosableWindowMask | NSTitledWindowMask;
+-            }
+-        } else {
+-            if (flags & Qt::WindowMaximizeButtonHint)
+-                styleMask |= NSResizableWindowMask;
+-            if (flags & Qt::WindowTitleHint)
+-                styleMask |= NSTitledWindowMask;
+-            if (flags & Qt::WindowCloseButtonHint)
+-                styleMask |= NSClosableWindowMask;
+-            if (flags & Qt::WindowMinimizeButtonHint)
+-                styleMask |= NSMiniaturizableWindowMask;
+-        }
++        styleMask |= NSClosableWindowMask | NSTitledWindowMask;
++        
++        if (type != Qt::Dialog)
++            styleMask |= NSMiniaturizableWindowMask;
+     }
++    
++    if (type == Qt::Tool)
++        styleMask |= NSUtilityWindowMask;
+ 
+     if (m_drawContentBorderGradient)
+         styleMask |= NSTexturedBackgroundWindowMask;
+ 
++    // Don't wipe fullscreen state
++    if (m_contentView.window.styleMask & NSFullScreenWindowMask)
++        styleMask |= NSFullScreenWindowMask;
++    
++    if (m_contentView.window.styleMask & NSFullSizeContentViewWindowMask)
++        styleMask |= NSFullSizeContentViewWindowMask;
++    
+ #ifdef QT_COCOA_ENABLE_WINDOW_DEBUG
+     qDebug("windowStyleMask of '%s': flags %X -> styleMask %lX", qPrintable(window()->title()), (int)flags, styleMask);
+ #endif
+@@ -955,12 +948,15 @@ void QCocoaWindow::setWindowZoomButton(Qt::WindowFlags flags)
+     // in line with the platform style guidelines.
+     bool fixedSizeNoZoom = (windowMinimumSize().isValid() && windowMaximumSize().isValid()
+                             && windowMinimumSize() == windowMaximumSize());
+-    bool customizeNoZoom = ((flags & Qt::CustomizeWindowHint) && !(flags & Qt::WindowMaximizeButtonHint));
++    bool customizeNoZoom = ((flags & Qt::CustomizeWindowHint)
++                            && !(flags & (Qt::WindowMaximizeButtonHint | Qt::WindowFullscreenButtonHint)));
++    
+     [[m_nsWindow standardWindowButton:NSWindowZoomButton] setEnabled:!(fixedSizeNoZoom || customizeNoZoom)];
+ }
+ 
+ void QCocoaWindow::setWindowFlags(Qt::WindowFlags flags)
+ {
++    QMacAutoReleasePool pool;
+     if (m_nsWindow && !m_isNSWindowChild) {
+         NSUInteger styleMask = windowStyleMask(flags);
+         NSInteger level = this->windowLevel(flags);
