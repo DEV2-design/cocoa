@@ -1,8 +1,14 @@
 # Qt cocoa plugin
-
+**Legal Compliance Notice**  
+* Uses Qt framework under the terms of GNU Lesser General Public License v3 (LGPLv3). The copyright of Qt library belongs to The Qt Company Ltd.  
+Qt is provided AS-IS without warranty of any kind. Full license text: 
+[LGPLv3](https://www.gnu.org/licenses/lgpl-3.0.html) or see `/LICENSE` in distribution package.(Can be queried through About us→Third-party copyright information)
 Cocoa is a native application development framework for the macOS platform, providing a rich set of APIs for desktop application development. In the macOS port of Qt, Cocoa is used as a plugin module.
 Within the Qt environment, Cocoa is integrated as a module, allowing developers to invoke macOS native features within their Qt projects.
 The Qt port of cocoa currently compiles and runs on macOS.
+**Note**:
+ This plugin dynamically links to Qt libraries.
+
 
 # Building
 
